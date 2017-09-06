@@ -118,13 +118,13 @@ function renderNode (seq, node, context) {
  *
  * @return     {undefined}          No return value.
  */
+// eslint-disable-next-line max-statements
 function evalComponent (seq, node, context) {
   const Component = node.type;
 
   const componentContext = getContext(Component, context);
   const instance = constructComponent(Component, node.props, componentContext);
   const renderedElement = renderComponentInstance(instance, node.props, componentContext);
-
   const childContext = getChildContext(Component, instance, context);
   traverse({
     seq,
