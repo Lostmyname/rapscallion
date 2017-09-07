@@ -4,35 +4,30 @@ const htmlStringEscape = require("./escape-html");
 const renderAttrs = require("./attrs");
 const deasync = require("deasync");
 
-const {
-  REACT_EMPTY,
-  REACT_ID,
-  REACT_TEXT_START,
-  REACT_TEXT_END
-} = require("../symbols");
+const { REACT_EMPTY, REACT_ID, REACT_TEXT_START, REACT_TEXT_END } = require("../symbols");
 
 const omittedCloseTags = {
-  "area": true,
-  "base": true,
-  "br": true,
-  "col": true,
-  "embed": true,
-  "hr": true,
-  "img": true,
-  "input": true,
-  "keygen": true,
-  "link": true,
-  "meta": true,
-  "param": true,
-  "source": true,
-  "track": true,
-  "wbr": true
+  area: true,
+  base: true,
+  br: true,
+  col: true,
+  embed: true,
+  hr: true,
+  img: true,
+  input: true,
+  keygen: true,
+  link: true,
+  meta: true,
+  param: true,
+  source: true,
+  track: true,
+  wbr: true
 };
 
 const newlineEatingTags = {
-  "listing": true,
-  "pre": true,
-  "textarea": true
+  listing: true,
+  pre: true,
+  textarea: true
 };
 
 function renderChildrenArray ({ seq, children, context }) {
@@ -56,7 +51,9 @@ function renderChildrenArray ({ seq, children, context }) {
 }
 
 function renderChildren ({ seq, children, context, parent }) {
-  if (children === undefined) { return; }
+  if (children === undefined) {
+    return;
+  }
 
   if (Array.isArray(children)) {
     renderChildrenArray({
@@ -87,7 +84,7 @@ function renderNode (seq, node, context) {
   seq.emit(() => `<${node.type}`);
   seq.emit(() => renderAttrs(node.props, node));
   seq.emit(() => REACT_ID);
-  seq.emit(() => omittedCloseTags[node.type] ? "/>" : ">");
+  seq.emit(() => (omittedCloseTags[node.type] ? "/>" : ">"));
   if (node.props.dangerouslySetInnerHTML) {
     seq.emit(() => node.props.dangerouslySetInnerHTML.__html || "");
   } else if (node.props.children !== null) {
@@ -95,12 +92,14 @@ function renderNode (seq, node, context) {
       seq.emit(() => node.props.value);
     }
 
-    seq.delegate(() => renderChildren({
-      seq,
-      context,
-      children: node.props.children,
-      parent: node
-    }));
+    seq.delegate(() =>
+      renderChildren({
+        seq,
+        context,
+        children: node.props.children,
+        parent: node
+      })
+    );
   }
   if (!omittedCloseTags[node.type]) {
     seq.emit(() => `</${node.type}>`);
@@ -142,6 +141,7 @@ function constructComponent (Component, props, context) {
   }
 }
 
+// eslint-disable-next-line max-statements
 function renderComponentInstance (instance, props, context) {
   let renderedElement;
   // Stateless functional components return rendered element directly rather than component instance
@@ -154,7 +154,7 @@ function renderComponentInstance (instance, props, context) {
     instance.props = props;
     instance.context = context;
 
-    if (typeof instance.componentWillMount === 'function') {
+    if (typeof instance.componentWillMount === "function") {
       instance.setState = syncSetState;
       result = instance.componentWillMount();
     }
@@ -191,11 +191,13 @@ function evalSegment (seq, segment, context) {
     if (typeof segment.expression === "string") {
       seq.emit(() => htmlStringEscape(segment.expression));
     } else if (Array.isArray(segment.expression)) {
-      segment.expression.forEach(subsegment => traverse({
-        seq,
-        node: subsegment,
-        context
-      }));
+      segment.expression.forEach(subsegment =>
+        traverse({
+          seq,
+          node: subsegment,
+          context
+        })
+      );
     } else {
       traverse({
         seq,
@@ -224,7 +226,9 @@ function evalPreRendered (seq, node, context) {
     });
   } else if (prerenderType === "attr") {
     const { name, value } = node;
-    if (value) { seq.emit(() => ` ${name}="${value}"`); }
+    if (value) {
+      seq.emit(() => ` ${name}="${value}"`);
+    }
   } else if (prerenderType === "component") {
     evalComponent(seq, node, context);
   }
@@ -253,9 +257,7 @@ function emitText ({ seq, text, numChildren, isNewlineEatingTag }) {
 }
 
 function shouldEmitByType (seq, node) {
-  return node !== undefined &&
-    node !== false &&
-    node !== true;
+  return node !== undefined && node !== false && node !== true;
 }
 
 /**
@@ -282,7 +284,7 @@ function traverse ({ seq, node, context, numChildren, parent }) {
 
   switch (typeof node) {
   case "string": {
-    // Text node.
+      // Text node.
     emitText({
       seq,
       text: htmlStringEscape(node),
@@ -306,11 +308,11 @@ function traverse ({ seq, node, context, numChildren, parent }) {
       evalPreRendered(seq, node, context);
       return;
     } else if (typeof node.type === "string") {
-      // Plain-jane DOM element, not a React component.
+        // Plain-jane DOM element, not a React component.
       seq.delegateCached(node, (_seq, _node) => renderNode(_seq, _node, context));
       return;
     } else if (node.$$typeof) {
-      // React component.
+        // React component.
       seq.delegateCached(node, (_seq, _node) => evalComponent(_seq, _node, context));
       return;
     }
@@ -319,6 +321,5 @@ function traverse ({ seq, node, context, numChildren, parent }) {
 
   throw new TypeError(`Unknown node of type: ${node.type}`);
 }
-
 
 module.exports = traverse;
