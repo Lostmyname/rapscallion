@@ -1,48 +1,43 @@
-const Promise = require("bluebird");
 const { Readable } = require("stream");
 
 const { EXHAUSTED } = require("../sequence");
-const { pullBatch, getReactIdPushable, getChecksumWrapper } = require("./common");
+const { pullBatch, INCOMPLETE } = require("./common");
 
 
 /**
  * Consumes the provided sequence and pushes onto a readable Node stream.
  *
- * @param      {Sequence}  sequence        Source sequence.
- * @param      {Integer}   batchSize       The number of HTML segments to render
- *                                         before passing control back to the event loop.
- * @param      {Boolean}   dataReactAttrs  Indicates whether data-react* attrs should be
- *                                         rendered.
+ * @param      {Renderer}  renderer        The Renderer from which to pull next-vals.
  *
  * @return     {Readable}                  A readable Node stream.
  */
-function toNodeStream (sequence, batchSize, dataReactAttrs) {
+function toNodeStream (renderer) {
   let sourceIsReady = true;
 
   const read = () => {
     // If source is not ready, defer any reads until the promise resolves.
     if (!sourceIsReady) { return; }
 
-    const result = pullBatch(sequence, batchSize, reactIdPushable);
+    sourceIsReady = false;
+    const pull = pullBatch(renderer, stream);
 
-    if (result === EXHAUSTED) {
-      stream.push(null);
-    } else if (result instanceof Promise) {
-      sourceIsReady = false;
-      result.then(next => {
-        sourceIsReady = true;
-        reactIdPushable.push(next);
+    pull.then(result => {
+      sourceIsReady = true;
+      if (result === EXHAUSTED) {
+        stream.push(null);
+      } else {
+        if (result !== INCOMPLETE) {
+          stream.push(result);
+        }
         read();
-      });
-    }
+      }
+    }).catch(err => {
+      stream.emit("error", err);
+    });
   };
 
   const stream = new Readable({ read });
 
-  const checksumWrapper = getChecksumWrapper(stream);
-  const reactIdPushable = getReactIdPushable(checksumWrapper, 1, dataReactAttrs);
-
-  stream.checksum = checksumWrapper.checksum;
   return stream;
 }
 

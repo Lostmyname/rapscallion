@@ -1,5 +1,5 @@
-const { assign, omit } = require("lodash");
 const Promise = require("bluebird");
+const { assign, omit } = require("lodash");
 
 const { EXHAUSTED } = require("./common");
 const { getFrameCache } = require("./cache");
@@ -31,7 +31,7 @@ class Sequence {
     this.cursor = 0;
 
     // Let the delegate do its thing...
-    delegate();
+    return delegate();
   }
 
   popFrame () {
@@ -76,7 +76,7 @@ class Sequence {
 
     // The callback will be invoked by `pushFrame`, followed by a call to `next`..
     this.eventGenQueue.push(() => {
-      return frameIterator instanceof Promise ?
+      return typeof frameIterator.then === "function" ?
         frameIterator.then(_frameIterator => _frameIterator.patch(this)) :
         frameIterator.patch(this);
     });
@@ -94,14 +94,26 @@ class Sequence {
   next () {
     const nextIsDelegate = this.delegates[this.cursor];
     const nextFn = this.eventGenQueue[this.cursor++];
-    if (!nextFn) { return this.popFrame() || EXHAUSTED; }
+    if (!nextFn) {
+      const frame = this.popFrame();
+      if (frame) {
+        return Promise.resolve(frame);
+      }
 
-    if (nextIsDelegate) {
-      this.pushFrame(nextFn);
-      return this.next();
+      return EXHAUSTED;
     }
 
-    return nextFn();
+    if (nextIsDelegate) {
+      return Promise.resolve()
+      .then(() => {
+        const frame = this.pushFrame(nextFn);
+        return frame;
+      })
+      .then(() => this.next());
+    }
+
+    return Promise.resolve()
+    .then(nextFn);
   }
 }
 

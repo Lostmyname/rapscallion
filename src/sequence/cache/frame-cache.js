@@ -1,3 +1,4 @@
+const Promise = require("bluebird");
 const { EXHAUSTED } = require("../common");
 
 const compress = require("../compress");
@@ -11,7 +12,7 @@ class FrameCache {
   }
 
   fork () {
-    return new FrameCacheIterator(this, this.getNextFn());
+    return new FrameCacheIterator(this.getNextFn());
   }
 
   compress () {
@@ -32,6 +33,8 @@ class FrameCache {
       if (nextVal instanceof Promise) {
         return nextVal.then(getNextVal);
       }
+
+
       buffer.push(nextVal);
       // Once the FrameCache's sequence has been exhausted, it is safe to compress
       // the buffer and set the value via the specified cache strategy.  Other
@@ -48,7 +51,7 @@ class FrameCache {
 }
 
 class FrameCacheIterator {
-  constructor (frameCache, nextFn) {
+  constructor (nextFn) {
     this.idx = 0;
     this.next = () => nextFn(this.idx++);
   }

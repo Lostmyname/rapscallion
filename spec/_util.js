@@ -1,6 +1,11 @@
 /* eslint-disable filenames/match-regex */
 import { default as React } from "react";
-import { renderToString as reactRenderToString } from "react-dom/server";
+
+import {
+  renderToString as reactRenderToString,
+  renderToStaticMarkup as reactRenderToStaticMarkup
+} from "react-dom/server";
+
 import { transform } from "babel-core";
 
 import { render } from "../src";
@@ -17,7 +22,7 @@ function resolveStreamOnDone (stream, cb) {
 }
 
 
-export const checkParity = (Component, props) => {
+export const checkParity = (Component, props = {}) => {
   describe("via React.createElement", () => {
     it("has parity with React#renderToString via Render#toPromise", () => {
       return render(<Component {...props} />)
@@ -27,15 +32,35 @@ export const checkParity = (Component, props) => {
         });
     });
     it("has parity with React#renderToString via Render#toStream", () => {
-      const stream = render(<Component {...props} />).toStream();
+      const renderer = render(<Component {...props} />);
+      const stream = renderer.toStream();
 
       let output = "";
       return resolveStreamOnDone(stream, segment => output += segment)
         .then(() => {
-          const checksum = stream.checksum();
+          const checksum = renderer.checksum();
           output = output.replace(TAG_END, ` data-react-checksum="${checksum}"$&`);
 
           expect(output).to.equal(reactRenderToString(<Component {...props} />));
+        });
+    });
+    it("has parity with React#renderToStaticMarkup via Render#toPromise", () => {
+      return render(<Component {...props} />)
+        .includeDataReactAttrs(false)
+        .toPromise()
+        .then(htmlString => {
+          expect(htmlString).to.equal(reactRenderToStaticMarkup(<Component {...props} />));
+        });
+    });
+    it("has parity with React#renderToStaticMarkup via Render#toStream", () => {
+      const stream = render(<Component {...props} />)
+        .includeDataReactAttrs(false)
+        .toStream();
+
+      let output = "";
+      return resolveStreamOnDone(stream, segment => output += segment)
+        .then(() => {
+          expect(output).to.equal(reactRenderToStaticMarkup(<Component {...props} />));
         });
     });
   });
@@ -57,18 +82,23 @@ export const checkParity = (Component, props) => {
         });
     });
     it("has parity with React#renderToString via Render#toStream", () => {
-      const stream = render(prerenderedRootNode).toStream();
+      const renderer = render(prerenderedRootNode);
+      const stream = renderer.toStream();
 
       let output = "";
       return resolveStreamOnDone(stream, segment => output += segment)
         .then(() => {
-          const checksum = stream.checksum();
+          const checksum = renderer.checksum();
           output = output.replace(TAG_END, ` data-react-checksum="${checksum}"$&`);
 
           expect(output).to.equal(reactRenderToString(<Component {...props} />));
         });
     });
   });
+};
+
+export const checkElementParity = (element) => {
+  return checkParity(() => element);
 };
 
 const serverPluginPath = require.resolve("../src/transform/server");
